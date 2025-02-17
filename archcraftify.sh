@@ -1,110 +1,151 @@
 #!/bin/bash
 
+# Exit on error, undefined variables, and pipe failures
+set -euo pipefail
+
+# Color definitions for better output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Logger function
+log() {
+    local level=$1
+    shift
+    case "$level" in
+        "INFO") echo -e "${GREEN}[INFO]${NC} $*" ;;
+        "WARN") echo -e "${YELLOW}[WARN]${NC} $*" ;;
+        "ERROR") echo -e "${RED}[ERROR]${NC} $*" ;;
+    esac
+}
+
+# Error handler
+error_handler() {
+    local line_num=$1
+    log "ERROR" "Script failed at line ${line_num}"
+    exit 1
+}
+
+trap 'error_handler ${LINENO}' ERR
+
 # Check for root privileges
-if [[ $UID -ne 0 ]]; then
-  echo "Error: This script must be run with sudo."
-  exit 1
+if [[ $EUID -ne 0 ]]; then
+    log "ERROR" "This script must be run with sudo."
+    exit 1
 fi
 
-# Mirrorlist file
-mirrorlist_source="./archcraft-mirrorlist"
-mirrorlist_dest="/etc/pacman.d/archcraft-mirrorlist"
+# Validate required files exist
+required_files=("./archcraft-mirrorlist" "./packages.txt" "./packages-aur.txt")
+for file in "${required_files[@]}"; do
+    if [[ ! -f "$file" ]]; then
+        log "ERROR" "Required file '$file' not found."
+        exit 1
+    fi
+done
 
-# Check if the source mirrorlist file exists
-if [ ! -f "$mirrorlist_source" ]; then
-  echo "Error: Mirrorlist file '$mirrorlist_source' not found."
-  exit 1
-fi
+# Function to backup configuration files
+backup_config() {
+    local file=$1
+    if [[ -f "$file" ]]; then
+        cp "$file" "${file}.backup.$(date +%Y%m%d_%H%M%S)"
+        log "INFO" "Backup created for $file"
+    fi
+}
 
-# Copy the mirrorlist file
-sudo cp "$mirrorlist_source" "$mirrorlist_dest"
-echo "Mirrorlist file copied to $mirrorlist_dest"
+# Setup mirrorlist
+setup_mirrorlist() {
+    local mirrorlist_source="./archcraft-mirrorlist"
+    local mirrorlist_dest="/etc/pacman.d/archcraft-mirrorlist"
+    
+    backup_config "$mirrorlist_dest"
+    cp "$mirrorlist_source" "$mirrorlist_dest"
+    log "INFO" "Mirrorlist file copied to $mirrorlist_dest"
+}
 
-# Define the archcraft repo section
-archcraft_repo="
+# Setup Archcraft repository
+setup_repo() {
+    local pacman_conf="/etc/pacman.conf"
+    backup_config "$pacman_conf"
+    
+    # Check if repo already exists
+    if grep -q '^\[archcraft\]' "$pacman_conf"; then
+        log "WARN" "Archcraft repository already exists in pacman.conf"
+        return
+    }
+
+    local archcraft_repo="
 [archcraft]
 SigLevel = Optional TrustAll
 Include = /etc/pacman.d/archcraft-mirrorlist
 "
+    # Insert before [core] section
+    sed -i "/^\[core\]/i ${archcraft_repo}" "$pacman_conf"
+    log "INFO" "Archcraft repository section added to pacman.conf"
+}
 
-# Use sed to insert the archcraft section before the [core] section
-sed -i -e "/^\[core\]/i \"$archcraft_repo\"" -e 's/\n\[core\]/\n&/' /etc/pacman.conf
-echo "Archcraft repository section added before [core] in /etc/pacman.conf"
-
-
-# Git installation and yay cloning
-home_dir="$HOME"
-
-# Check if git is installed
-if ! command -v git &> /dev/null; then
-  echo "Git is not installed. Installing..."
-  sudo pacman -S git
-else
-  echo "Git is already installed."
-fi
-
-# Clone yay in the home directory
-git clone https://aur.archlinux.org/yay.git "$home_dir/yay"
-if [[ $? -eq 0 ]]; then
-  echo "Yay cloned to $home_dir/yay"
-
-  # Build and install yay
-  cd "$home_dir/yay" || { echo "Error: Could not cd to $home_dir/yay"; exit 1; }
-  makepkg -si
-  if [[ $? -eq 0 ]]; then
-    echo "Yay installed successfully."
-  else
-    echo "Error: Yay installation failed."
-    exit 1
-  fi
-else
-  echo "Error: Yay cloning failed."
-  exit 1
-fi
-
-
-# Package installation from list (pacman)
-packages_file="./packages.txt"
-
-if [ ! -f "$packages_file" ]; then
-  echo "Error: Packages file '$packages_file' not found."
-  exit 1
-fi
-
-echo "Installing packages from $packages_file..."
-sudo pacman -S - < "$packages_file"
-
-if [[ $? -eq 0 ]]; then
-  echo "Packages installed successfully."
-else
-  echo "Error: Package installation failed."
-  exit 1
-fi
-
-
-# AUR Package installation from list (yay)
-packages_aur_file="./packages-aur.txt"
-
-if [ ! -f "$packages_aur_file" ]; then
-  echo "Error: AUR packages file '$packages_aur_file' not found."
-  exit 1
-fi
-
-echo "Installing AUR packages from $packages_aur_file..."
-
-while IFS= read -r package; do
-    package=$(echo "$package" | tr -d '\r') #remove carriage returns if present
-    if [[ -n "$package" ]]; then #skip empty lines
-        yay -S "$package"
-        if [[ $? -ne 0 ]]; then
-            echo "Error: Installation of '$package' from AUR failed."
-            exit 1 # Or continue if you prefer: continue
-        else
-            echo "Package '$package' from AUR installed successfully."
-        fi
+# Install git and yay
+install_yay() {
+    local home_dir=$HOME
+    
+    # Install git if not present
+    if ! command -v git &> /dev/null; then
+        log "INFO" "Installing git..."
+        pacman -S --noconfirm git
     fi
-done < "$packages_aur_file"
 
-echo "AUR package installation complete."
+    # Remove existing yay directory if present
+    if [[ -d "$home_dir/yay" ]]; then
+        log "WARN" "Removing existing yay directory..."
+        rm -rf "$home_dir/yay"
+    fi
 
-exit 0
+    # Clone and build yay
+    log "INFO" "Cloning yay..."
+    git clone https://aur.archlinux.org/yay.git "$home_dir/yay"
+    cd "$home_dir/yay" || exit 1
+    makepkg -si --noconfirm
+    log "INFO" "Yay installed successfully"
+}
+
+# Install packages from official repositories
+install_official_packages() {
+    log "INFO" "Installing official packages..."
+    # Update package database first
+    pacman -Sy
+    # Read packages and filter empty lines and comments
+    mapfile -t packages < <(grep -v '^#\|^$' "./packages.txt")
+    pacman -S --needed --noconfirm "${packages[@]}"
+    log "INFO" "Official packages installed successfully"
+}
+
+# Install AUR packages
+install_aur_packages() {
+    log "INFO" "Installing AUR packages..."
+    # Read packages and filter empty lines and comments
+    while IFS= read -r package || [[ -n "$package" ]]; do
+        # Skip comments and empty lines
+        [[ "$package" =~ ^#.*$ ]] && continue
+        [[ -z "${package// }" ]] && continue
+        
+        package=$(echo "$package" | tr -d '\r')
+        log "INFO" "Installing AUR package: $package"
+        yay -S --needed --noconfirm "$package"
+    done < "./packages-aur.txt"
+    log "INFO" "AUR packages installed successfully"
+}
+
+# Main execution
+main() {
+    log "INFO" "Starting Archcraft setup..."
+    
+    setup_mirrorlist
+    setup_repo
+    install_yay
+    install_official_packages
+    install_aur_packages
+    
+    log "INFO" "Archcraft setup completed successfully"
+}
+
+main "$@"
