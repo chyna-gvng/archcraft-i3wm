@@ -36,18 +36,18 @@ Before running the script, ensure you have the following files in your working d
 
 2. Clone this repository or download the files:
    ```bash
-   git clone https://github.com/yourusername/archcraft-setup.git
-   cd archcraft-setup
+   git clone https://github.com/chyna-gvng/archcraft-i3wm.git
+   cd archcraft-i3wm
    ```
 
 3. Make the script executable:
    ```bash
-   chmod +x setup.sh
+   chmod +x archcraftify.sh
    ```
 
 4. Run the script with sudo:
    ```bash
-   sudo ./setup.sh
+   sudo ./archcraftify.sh
    ```
 
 ## What the Script Does
@@ -80,24 +80,21 @@ Before running the script, ensure you have the following files in your working d
 List your official repository packages in this file, one per line:
 ```
 base-devel
-firefox
+chromium
 neovim
-# Comments are supported
 ```
 
 ### packages-aur.txt
 List your AUR packages in this file, one per line:
 ```
 visual-studio-code-bin
-spotify
-# Comments are supported
+zen-browser-bin
 ```
 
 ### archcraft-mirrorlist
 Contains the Archcraft repository mirrors. Example:
 ```
-Server = https://mirror1.archcraft.io/$repo/$arch
-Server = https://mirror2.archcraft.io/$repo/$arch
+Server = https://packages.archcraft.io/$arch
 ```
 
 ## Error Handling
@@ -115,7 +112,7 @@ The script includes comprehensive error handling:
 1. **Script fails to run with sudo**
    ```bash
    # Solution: Ensure script is executable
-   chmod +x setup.sh
+   chmod +x archcraftify.sh
    ```
 
 2. **Package installation fails**
