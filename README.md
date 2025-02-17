@@ -1,2 +1,2 @@
-# archcraft-i3wm
-Archcraft on Arch Linux
+# Archcraftify
+!Solving my own problem, Archcraft not booting but Arch does.
