@@ -1,0 +1,12 @@
+betterlockscreen
+downgrade
+gtk3-nocsd-git
+i3lock-color
+ksuperkey
+mkinitcpio-firmware
+networkmanager-dmenu-git
+perl-linux-desktopfiles
+rofi-lbonn-wayland-git
+xfce-polkit
+visual-studio-code-bin
+zen-browser-bin
