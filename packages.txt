@@ -127,7 +127,6 @@ archcraft-grub-theme
 archcraft/plymouth
 archcraft-plymouth-theme
 archcraft-hooks
-archcraft-mirrorlist
 xorg
 xorg-xinput
 xf86-input-libinput
