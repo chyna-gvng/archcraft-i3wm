@@ -151,3 +151,6 @@ The script provides detailed logging with different levels:
 ## Contributing
 
 Feel free to submit issues and enhancement requests!
+
+## Note
+I am fixing my own problem. Archcraft doesn't boot on my device, but Arch does. Why not port ?
