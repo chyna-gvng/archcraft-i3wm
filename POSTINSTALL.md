@@ -20,3 +20,8 @@
 
 ## TOUCHPAD
 - sudo micro /etc/X11/xorg.conf.d/02-touchpad-ttc.conf(default from: https://github.com/archcraft-os/archcraft)
+
+## ZSH
+- sudo cp -r /etc/skel/.oh-my-zsh /etc/skel/.zshrc ~
+- chsh -s $(which zsh)
+- reboot
