@@ -64,7 +64,7 @@ backup_config() {
 setup_mirrorlist() {
     local mirrorlist_source="$SCRIPT_DIR/archcraft-mirrorlist"
     local mirrorlist_dest="/etc/pacman.d/archcraft-mirrorlist"
-    
+
     backup_config "$mirrorlist_dest"
     cp "$mirrorlist_source" "$mirrorlist_dest"
     log "INFO" "Mirrorlist file copied to $mirrorlist_dest"
@@ -74,7 +74,7 @@ setup_mirrorlist() {
 setup_repo() {
     local pacman_conf="/etc/pacman.conf"
     backup_config "$pacman_conf"
-    
+
     # Check if repo already exists
     if grep -q '^\[archcraft\]' "$pacman_conf"; then
         log "WARN" "Archcraft repository already exists in pacman.conf"
@@ -83,26 +83,26 @@ setup_repo() {
 
     # Create a temporary file with the current content
     cp "$pacman_conf" "/tmp/pacman.conf.temp"
-    
+
     # Find the line number where [core] appears
     core_line=$(grep -n '^\[core\]' "/tmp/pacman.conf.temp" | cut -d: -f1)
-    
+
     if [ -n "$core_line" ]; then
         # Split the file at [core] line
         head -n $((core_line-1)) "/tmp/pacman.conf.temp" > "/tmp/pacman.conf.new"
-        
+
         # Add archcraft repository
         echo -e "\n[archcraft]" >> "/tmp/pacman.conf.new"
         echo "SigLevel = Optional TrustAll" >> "/tmp/pacman.conf.new"
         echo -e "Include = /etc/pacman.d/archcraft-mirrorlist\n" >> "/tmp/pacman.conf.new"
-        
+
         # Add the rest of the original file
         tail -n "+$core_line" "/tmp/pacman.conf.temp" >> "/tmp/pacman.conf.new"
-        
+
         # Replace the original file
         mv "/tmp/pacman.conf.new" "$pacman_conf"
         rm -f "/tmp/pacman.conf.temp"
-        
+
         log "INFO" "Archcraft repository section added to pacman.conf"
     else
         log "ERROR" "Could not find [core] section in pacman.conf"
@@ -145,7 +145,7 @@ install_yay() {
     cd "$ACTUAL_HOME/yay" || exit 1
     log "INFO" "Building yay..."
     sudo -u "$ACTUAL_USER" makepkg -si --noconfirm
-    
+
     # Return to original directory
     cd "$SCRIPT_DIR"
     log "INFO" "Yay installed successfully"
@@ -167,10 +167,10 @@ install_aur_packages() {
         # Skip comments and empty lines
         [[ "$package" =~ ^#.*$ ]] && continue
         [[ -z "${package// }" ]] && continue
-        
+
         package=$(echo "$package" | tr -d '\r')
         log "INFO" "Installing AUR package: $package"
-        sudo -u "$ACTUAL_USER" yay -S --needed --noconfirm "$package"
+        sudo -u "$ACTUAL_USER" yay -S --needed --noconfirm --remove-make "$package"
     done < "$SCRIPT_DIR/packages-aur.txt"
     log "INFO" "AUR packages installed successfully"
 }
@@ -178,14 +178,14 @@ install_aur_packages() {
 # Main execution
 main() {
     log "INFO" "Starting Archcraft setup..."
-    
+
     setup_mirrorlist
     setup_repo
     update_databases
     install_yay
     install_official_packages
     install_aur_packages
-    
+
     log "INFO" "Archcraft setup completed successfully"
 }
 
