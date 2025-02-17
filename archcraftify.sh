@@ -22,8 +22,7 @@ log() {
 
 # Error handler
 error_handler() {
-    local line_num=$1
-    log "ERROR" "Script failed at line ${line_num}"
+    log "ERROR" "Script failed at line $1"
     exit 1
 }
 
@@ -72,13 +71,13 @@ setup_repo() {
     if grep -q '^\[archcraft\]' "$pacman_conf"; then
         log "WARN" "Archcraft repository already exists in pacman.conf"
         return
-    }
+    fi
 
     local archcraft_repo="
 [archcraft]
 SigLevel = Optional TrustAll
-Include = /etc/pacman.d/archcraft-mirrorlist
-"
+Include = /etc/pacman.d/archcraft-mirrorlist"
+
     # Insert before [core] section
     sed -i "/^\[core\]/i ${archcraft_repo}" "$pacman_conf"
     log "INFO" "Archcraft repository section added to pacman.conf"
@@ -122,7 +121,6 @@ install_official_packages() {
 # Install AUR packages
 install_aur_packages() {
     log "INFO" "Installing AUR packages..."
-    # Read packages and filter empty lines and comments
     while IFS= read -r package || [[ -n "$package" ]]; do
         # Skip comments and empty lines
         [[ "$package" =~ ^#.*$ ]] && continue
