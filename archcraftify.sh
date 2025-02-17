@@ -107,19 +107,26 @@ setup_repo() {
     fi
 }
 
+# Update package databases
+update_databases() {
+    log "INFO" "Updating package databases..."
+    pacman -Syy
+}
+
 # Install git and yay
 install_yay() {
+    # Update package databases first
+    update_databases
+
     # Install git if not present
     if ! command -v git &> /dev/null; then
         log "INFO" "Installing git..."
         pacman -S --noconfirm git
     fi
 
-    # Install base-devel if not present
-    if ! pacman -Qi base-devel &> /dev/null; then
-        log "INFO" "Installing base-devel..."
-        pacman -S --noconfirm base-devel
-    fi
+    # Install base-devel and go if not present
+    log "INFO" "Installing base-devel and go..."
+    pacman -S --needed --noconfirm base-devel go
 
     # Remove existing yay directory if present
     if [[ -d "$ACTUAL_HOME/yay" ]]; then
@@ -140,8 +147,6 @@ install_yay() {
 # Install packages from official repositories
 install_official_packages() {
     log "INFO" "Installing official packages..."
-    # Update package database first
-    pacman -Sy
     # Read packages and filter empty lines and comments
     mapfile -t packages < <(grep -v '^#\|^$' "./packages.txt")
     pacman -S --needed --noconfirm "${packages[@]}"
@@ -169,6 +174,7 @@ main() {
     
     setup_mirrorlist
     setup_repo
+    update_databases
     install_yay
     install_official_packages
     install_aur_packages
