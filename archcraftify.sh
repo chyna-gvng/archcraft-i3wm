@@ -3,6 +3,9 @@
 # Exit on error, undefined variables, and pipe failures
 set -euo pipefail
 
+# Store the initial working directory
+SCRIPT_DIR="$(pwd)"
+
 # Color definitions for better output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -23,6 +26,7 @@ log() {
 # Error handler
 error_handler() {
     log "ERROR" "Script failed at line $1"
+    cd "$SCRIPT_DIR" # Return to initial directory on error
     exit 1
 }
 
@@ -39,7 +43,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # Validate required files exist
-required_files=("./archcraft-mirrorlist" "./packages.txt" "./packages-aur.txt")
+required_files=("$SCRIPT_DIR/archcraft-mirrorlist" "$SCRIPT_DIR/packages.txt" "$SCRIPT_DIR/packages-aur.txt")
 for file in "${required_files[@]}"; do
     if [[ ! -f "$file" ]]; then
         log "ERROR" "Required file '$file' not found."
@@ -58,7 +62,7 @@ backup_config() {
 
 # Setup mirrorlist
 setup_mirrorlist() {
-    local mirrorlist_source="./archcraft-mirrorlist"
+    local mirrorlist_source="$SCRIPT_DIR/archcraft-mirrorlist"
     local mirrorlist_dest="/etc/pacman.d/archcraft-mirrorlist"
     
     backup_config "$mirrorlist_dest"
@@ -141,6 +145,9 @@ install_yay() {
     cd "$ACTUAL_HOME/yay" || exit 1
     log "INFO" "Building yay..."
     sudo -u "$ACTUAL_USER" makepkg -si --noconfirm
+    
+    # Return to original directory
+    cd "$SCRIPT_DIR"
     log "INFO" "Yay installed successfully"
 }
 
@@ -148,7 +155,7 @@ install_yay() {
 install_official_packages() {
     log "INFO" "Installing official packages..."
     # Read packages and filter empty lines and comments
-    mapfile -t packages < <(grep -v '^#\|^$' "./packages.txt")
+    mapfile -t packages < <(grep -v '^#\|^$' "$SCRIPT_DIR/packages.txt")
     pacman -S --needed --noconfirm "${packages[@]}"
     log "INFO" "Official packages installed successfully"
 }
@@ -164,7 +171,7 @@ install_aur_packages() {
         package=$(echo "$package" | tr -d '\r')
         log "INFO" "Installing AUR package: $package"
         sudo -u "$ACTUAL_USER" yay -S --needed --noconfirm "$package"
-    done < "./packages-aur.txt"
+    done < "$SCRIPT_DIR/packages-aur.txt"
     log "INFO" "AUR packages installed successfully"
 }
 
