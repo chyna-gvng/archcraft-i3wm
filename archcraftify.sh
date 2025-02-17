@@ -73,13 +73,19 @@ setup_repo() {
         return
     fi
 
-    local archcraft_repo="
+    # Create a temporary file with the repository configuration
+    cat > /tmp/archcraft-repo << 'EOF'
+
 [archcraft]
 SigLevel = Optional TrustAll
-Include = /etc/pacman.d/archcraft-mirrorlist"
+Include = /etc/pacman.d/archcraft-mirrorlist
 
-    # Insert before [core] section
-    sed -i "/^\[core\]/i ${archcraft_repo}" "$pacman_conf"
+EOF
+
+    # Insert the repository configuration before [core]
+    sed -i '/^\[core\]/i\'"$(cat /tmp/archcraft-repo)" "$pacman_conf"
+    rm /tmp/archcraft-repo
+    
     log "INFO" "Archcraft repository section added to pacman.conf"
 }
 
