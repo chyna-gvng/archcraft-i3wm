@@ -73,20 +73,34 @@ setup_repo() {
         return
     fi
 
-    # Create a temporary file with the repository configuration
-    cat > /tmp/archcraft-repo << 'EOF'
-
-[archcraft]
-SigLevel = Optional TrustAll
-Include = /etc/pacman.d/archcraft-mirrorlist
-
-EOF
-
-    # Insert the repository configuration before [core]
-    sed -i '/^\[core\]/i\'"$(cat /tmp/archcraft-repo)" "$pacman_conf"
-    rm /tmp/archcraft-repo
+    # Create a temporary file with the current content
+    cp "$pacman_conf" "/tmp/pacman.conf.temp"
     
-    log "INFO" "Archcraft repository section added to pacman.conf"
+    # Find the line number where [core] appears
+    core_line=$(grep -n '^\[core\]' "/tmp/pacman.conf.temp" | cut -d: -f1)
+    
+    if [ -n "$core_line" ]; then
+        # Split the file at [core] line
+        head -n $((core_line-1)) "/tmp/pacman.conf.temp" > "/tmp/pacman.conf.new"
+        
+        # Add archcraft repository
+        echo -e "\n[archcraft]" >> "/tmp/pacman.conf.new"
+        echo "SigLevel = Optional TrustAll" >> "/tmp/pacman.conf.new"
+        echo -e "Include = /etc/pacman.d/archcraft-mirrorlist\n" >> "/tmp/pacman.conf.new"
+        
+        # Add the rest of the original file
+        tail -n "+$core_line" "/tmp/pacman.conf.temp" >> "/tmp/pacman.conf.new"
+        
+        # Replace the original file
+        mv "/tmp/pacman.conf.new" "$pacman_conf"
+        rm -f "/tmp/pacman.conf.temp"
+        
+        log "INFO" "Archcraft repository section added to pacman.conf"
+    else
+        log "ERROR" "Could not find [core] section in pacman.conf"
+        rm -f "/tmp/pacman.conf.temp"
+        exit 1
+    fi
 }
 
 # Install git and yay
