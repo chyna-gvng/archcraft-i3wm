@@ -28,6 +28,10 @@ error_handler() {
 
 trap 'error_handler ${LINENO}' ERR
 
+# Get the actual user who ran sudo
+ACTUAL_USER=${SUDO_USER:-$USER}
+ACTUAL_HOME=$(getent passwd "$ACTUAL_USER" | cut -d: -f6)
+
 # Check for root privileges
 if [[ $EUID -ne 0 ]]; then
     log "ERROR" "This script must be run with sudo."
@@ -105,25 +109,31 @@ setup_repo() {
 
 # Install git and yay
 install_yay() {
-    local home_dir=$HOME
-    
     # Install git if not present
     if ! command -v git &> /dev/null; then
         log "INFO" "Installing git..."
         pacman -S --noconfirm git
     fi
 
-    # Remove existing yay directory if present
-    if [[ -d "$home_dir/yay" ]]; then
-        log "WARN" "Removing existing yay directory..."
-        rm -rf "$home_dir/yay"
+    # Install base-devel if not present
+    if ! pacman -Qi base-devel &> /dev/null; then
+        log "INFO" "Installing base-devel..."
+        pacman -S --noconfirm base-devel
     fi
 
-    # Clone and build yay
+    # Remove existing yay directory if present
+    if [[ -d "$ACTUAL_HOME/yay" ]]; then
+        log "WARN" "Removing existing yay directory..."
+        rm -rf "$ACTUAL_HOME/yay"
+    fi
+
+    # Clone and build yay as the actual user
     log "INFO" "Cloning yay..."
-    git clone https://aur.archlinux.org/yay.git "$home_dir/yay"
-    cd "$home_dir/yay" || exit 1
-    makepkg -si --noconfirm
+    cd "$ACTUAL_HOME"
+    sudo -u "$ACTUAL_USER" git clone https://aur.archlinux.org/yay.git "$ACTUAL_HOME/yay"
+    cd "$ACTUAL_HOME/yay" || exit 1
+    log "INFO" "Building yay..."
+    sudo -u "$ACTUAL_USER" makepkg -si --noconfirm
     log "INFO" "Yay installed successfully"
 }
 
@@ -148,7 +158,7 @@ install_aur_packages() {
         
         package=$(echo "$package" | tr -d '\r')
         log "INFO" "Installing AUR package: $package"
-        yay -S --needed --noconfirm "$package"
+        sudo -u "$ACTUAL_USER" yay -S --needed --noconfirm "$package"
     done < "./packages-aur.txt"
     log "INFO" "AUR packages installed successfully"
 }
