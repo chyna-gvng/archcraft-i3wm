@@ -25,3 +25,4 @@
 - sudo cp -r /etc/skel/.oh-my-zsh /etc/skel/.zshrc ~
 - chsh -s $(which zsh)
 - reboot
+
